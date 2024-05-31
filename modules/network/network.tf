@@ -1,6 +1,9 @@
 variable "region" {}
 variable "instance_type" {}
 variable "cidr_block" {}
+variable "access_key" {}
+variable "secret_key" {}
+
 
 locals {
   vpc_names = ["Shared", "Production", "NonProduction"]
@@ -27,6 +30,8 @@ data "aws_ami" "amazon_linux" {
 
 provider "aws" {
   region = var.region
+  access_key = var.access_key
+  secret_key = var.secret_key
 }
 
 resource "aws_vpc" "main" {
@@ -55,7 +60,7 @@ resource "aws_subnet" "public" {
   count = local.vpc_count
 
   vpc_id            = aws_vpc.main[count.index].id
-  cidr_block        = cidrsubnet(aws_vpc.main[count.index].cidr_block, 8, 0)
+  cidr_block        = cidrsubnet(aws_vpc.main[count.index].cidr_block, 4, 0)
   map_public_ip_on_launch = true
   availability_zone = data.aws_availability_zones.available.names[0]
 
@@ -68,7 +73,7 @@ resource "aws_subnet" "private" {
   count = local.vpc_count
 
   vpc_id            = aws_vpc.main[count.index].id
-  cidr_block        = cidrsubnet(aws_vpc.main[count.index].cidr_block, 8, 1)
+  cidr_block        = cidrsubnet(aws_vpc.main[count.index].cidr_block, 4, 1)
   map_public_ip_on_launch = false
   availability_zone = data.aws_availability_zones.available.names[0]
 
@@ -223,7 +228,7 @@ resource "aws_route" "public_tgw_route" {
   count = local.vpc_count
 
   route_table_id         = aws_route_table.public[count.index].id
-  destination_cidr_block = "172.27.0.0/16"
+  destination_cidr_block = var.cidr_block
   gateway_id             = aws_ec2_transit_gateway.tgw.id
 
   depends_on = [
@@ -235,7 +240,7 @@ resource "aws_route" "private_tgw_route" {
   count = local.vpc_count
 
   route_table_id         = aws_route_table.private[count.index].id
-  destination_cidr_block = "172.27.0.0/16"
+  destination_cidr_block = var.cidr_block
   gateway_id             = aws_ec2_transit_gateway.tgw.id
 
   depends_on = [
