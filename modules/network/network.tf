@@ -1,10 +1,10 @@
 variable "region" {}
-variable "vpc_count" {}
 variable "instance_type" {}
-variable "vpc_names" {}
+variable "cidr_block" {}
 
 locals {
-  vpc_names = var.vpc_names
+  vpc_names = ["Shared", "Production", "NonProduction"]
+  vpc_count = "3"
 }
 
 data "aws_availability_zones" "available" {}
@@ -30,9 +30,9 @@ provider "aws" {
 }
 
 resource "aws_vpc" "main" {
-  count = var.vpc_count
+  count = local.vpc_count
 
-  cidr_block           = cidrsubnet("172.27.0.0/16", 4, count.index)
+  cidr_block           = cidrsubnet(var.cidr_block, 20, count.index)
   enable_dns_support   = true
   enable_dns_hostnames = true
 
@@ -42,7 +42,7 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_internet_gateway" "main" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   vpc_id = aws_vpc.main[count.index].id
 
@@ -52,7 +52,7 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   vpc_id            = aws_vpc.main[count.index].id
   cidr_block        = cidrsubnet(aws_vpc.main[count.index].cidr_block, 8, 0)
@@ -65,7 +65,7 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   vpc_id            = aws_vpc.main[count.index].id
   cidr_block        = cidrsubnet(aws_vpc.main[count.index].cidr_block, 8, 1)
@@ -78,7 +78,7 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_route_table" "public" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   vpc_id = aws_vpc.main[count.index].id
 
@@ -88,7 +88,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   vpc_id = aws_vpc.main[count.index].id
 
@@ -98,7 +98,7 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "public_default_route" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   route_table_id         = aws_route_table.public[count.index].id
   destination_cidr_block = "0.0.0.0/0"
@@ -106,19 +106,19 @@ resource "aws_route" "public_default_route" {
 }
 
 resource "aws_route_table_association" "public" {
-  count        = var.vpc_count
+  count        = local.vpc_count
   subnet_id    = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public[count.index].id
 }
 
 resource "aws_route_table_association" "private" {
-  count        = var.vpc_count
+  count        = local.vpc_count
   subnet_id    = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
 }
 
 resource "aws_security_group" "main" {
-  count = var.vpc_count
+  count = local.vpc_count
   name        = "lab-sg-1"
   description = "Allow ICMP and SSH traffic via Terraform"
   vpc_id = aws_vpc.main[count.index].id
@@ -150,7 +150,7 @@ resource "aws_security_group" "main" {
 }
 
 resource "aws_instance" "public" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   ami                         = data.aws_ami.amazon_linux.id
   instance_type               = var.instance_type
@@ -207,7 +207,7 @@ resource "aws_ec2_transit_gateway_route_table" "tgw_rt_nonproduction" {
 }
 
 resource "aws_ec2_transit_gateway_vpc_attachment" "tgw_attachment" {
-  count               = var.vpc_count
+  count               = local.vpc_count
   subnet_ids          = [aws_subnet.public[count.index].id]
   transit_gateway_id  = aws_ec2_transit_gateway.tgw.id
   vpc_id              = aws_vpc.main[count.index].id
@@ -220,7 +220,7 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "tgw_attachment" {
 
 # Ensure the TGW attachment is created before creating the routes
 resource "aws_route" "public_tgw_route" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   route_table_id         = aws_route_table.public[count.index].id
   destination_cidr_block = "172.27.0.0/16"
@@ -232,7 +232,7 @@ resource "aws_route" "public_tgw_route" {
 }
 
 resource "aws_route" "private_tgw_route" {
-  count = var.vpc_count
+  count = local.vpc_count
 
   route_table_id         = aws_route_table.private[count.index].id
   destination_cidr_block = "172.27.0.0/16"
@@ -273,6 +273,24 @@ resource "aws_ec2_transit_gateway_route_table_association" "tgw_association_nonp
 
 # Route Table Propagations
 resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_shared_to_production" {
+  transit_gateway_attachment_id = aws_ec2_transit_gateway_vpc_attachment.tgw_attachment[0].id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt_production.id
+
+  depends_on = [
+    aws_ec2_transit_gateway_vpc_attachment.tgw_attachment
+  ]
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_shared_to_nonproduction" {
+  transit_gateway_attachment_id = aws_ec2_transit_gateway_vpc_attachment.tgw_attachment[0].id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt_nonproduction.id
+
+  depends_on = [
+    aws_ec2_transit_gateway_vpc_attachment.tgw_attachment
+  ]
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_production_to_shared" {
   transit_gateway_attachment_id = aws_ec2_transit_gateway_vpc_attachment.tgw_attachment[1].id
   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt_shared.id
 
@@ -281,17 +299,8 @@ resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_shar
   ]
 }
 
-resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_shared_to_nonproduction" {
+resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_nonproduction_to_shared" {
   transit_gateway_attachment_id = aws_ec2_transit_gateway_vpc_attachment.tgw_attachment[2].id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt_shared.id
-
-  depends_on = [
-    aws_ec2_transit_gateway_vpc_attachment.tgw_attachment
-  ]
-}
-
-resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_production_to_shared" {
-  transit_gateway_attachment_id = aws_ec2_transit_gateway_vpc_attachment.tgw_attachment[0].id
   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt_shared.id
 
   depends_on = [
