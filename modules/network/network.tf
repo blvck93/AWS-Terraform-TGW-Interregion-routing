@@ -32,7 +32,7 @@ provider "aws" {
 resource "aws_vpc" "main" {
   count = local.vpc_count
 
-  cidr_block           = cidrsubnet(var.cidr_block, 20, count.index)
+  cidr_block           = cidrsubnet(var.cidr_block, 2, count.index)
   enable_dns_support   = true
   enable_dns_hostnames = true
 
