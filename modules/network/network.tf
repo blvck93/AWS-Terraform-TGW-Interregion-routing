@@ -312,3 +312,23 @@ resource "aws_ec2_transit_gateway_route_table_propagation" "tgw_propagation_nonp
     aws_ec2_transit_gateway_vpc_attachment.tgw_attachment
   ]
 }
+
+output "transit_gateway_id" {
+  value = aws_ec2_transit_gateway.tgw.id
+}
+
+output "tgw_rt_shared_id" {
+  value = aws_ec2_transit_gateway_route_table.tgw_rt_shared.id
+}
+
+output "tgw_rt_nonproduction_id" {
+  value = aws_ec2_transit_gateway_route_table.tgw_rt_nonproduction.id
+}
+
+output "tgw_rt_production_id" {
+  value = aws_ec2_transit_gateway_route_table.tgw_rt_production.id
+}
+
+output "cidr_block" {
+  value = var.cidr_block
+}
