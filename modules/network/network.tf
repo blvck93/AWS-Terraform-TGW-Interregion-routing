@@ -1,8 +1,8 @@
 variable "region" {}
 variable "instance_type" {}
 variable "cidr_block" {}
-variable "access_key" {}
-variable "secret_key" {}
+#variable "access_key" {}
+#variable "secret_key" {}
 
 
 locals {
@@ -30,8 +30,8 @@ data "aws_ami" "amazon_linux" {
 
 provider "aws" {
   region = var.region
-  access_key = var.access_key
-  secret_key = var.secret_key
+#  access_key = var.access_key
+#  secret_key = var.secret_key
 }
 
 resource "aws_vpc" "main" {
@@ -228,7 +228,7 @@ resource "aws_route" "public_tgw_route" {
   count = local.vpc_count
 
   route_table_id         = aws_route_table.public[count.index].id
-  destination_cidr_block = var.cidr_block
+  destination_cidr_block = "172.12.0.0/12"
   gateway_id             = aws_ec2_transit_gateway.tgw.id
 
   depends_on = [
@@ -240,7 +240,7 @@ resource "aws_route" "private_tgw_route" {
   count = local.vpc_count
 
   route_table_id         = aws_route_table.private[count.index].id
-  destination_cidr_block = var.cidr_block
+  destination_cidr_block = "172.12.0.0/12"
   gateway_id             = aws_ec2_transit_gateway.tgw.id
 
   depends_on = [
