@@ -228,7 +228,7 @@ resource "aws_route" "public_tgw_route" {
   count = local.vpc_count
 
   route_table_id         = aws_route_table.public[count.index].id
-  destination_cidr_block = "172.12.0.0/12"
+  destination_cidr_block = "172.16.0.0/12"
   gateway_id             = aws_ec2_transit_gateway.tgw.id
 
   depends_on = [
@@ -240,7 +240,7 @@ resource "aws_route" "private_tgw_route" {
   count = local.vpc_count
 
   route_table_id         = aws_route_table.private[count.index].id
-  destination_cidr_block = "172.12.0.0/12"
+  destination_cidr_block = "172.16.0.0/12"
   gateway_id             = aws_ec2_transit_gateway.tgw.id
 
   depends_on = [
