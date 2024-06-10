@@ -8,6 +8,7 @@ variable "cidr_block" {}
 locals {
   vpc_names = ["Shared", "Production", "NonProduction"]
   vpc_count = "3"
+  region_cidr = var.cidr_block
 }
 
 data "aws_availability_zones" "available" {}
@@ -185,6 +186,9 @@ resource "aws_instance" "public" {
 
 resource "aws_ec2_transit_gateway" "tgw" {
   description = "Transit Gateway for VPC connectivity"
+  default_route_table_association = "disable"
+  default_route_table_propagation = "disable"
+
   tags = {
     Name = "MainTGW"
   }
@@ -330,5 +334,5 @@ output "tgw_rt_production_id" {
 }
 
 output "cidr_block" {
-  value = var.cidr_block
+  value = local.region_cidr
 }
